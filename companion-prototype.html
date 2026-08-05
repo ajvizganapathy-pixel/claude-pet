@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Companion — rig preview</title>
+<style>
+  :root{
+    --bg-0:#0A0C12;
+    --bg-1:#141824;
+    --panel:#171C29;
+    --line:#252C3D;
+    --ink:#E6E8EE;
+    --muted:#79839B;
+    --steel:#7E9CC4;
+    --ember:#D98A55;
+    --alert:#D9605A;
+    --good:#6FC49B;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:
+      radial-gradient(120% 90% at 80% 100%, #1B2235 0%, transparent 60%),
+      linear-gradient(180deg, var(--bg-0), var(--bg-1));
+    color:var(--ink); font-family:var(--sans);
+    display:flex; flex-direction:column; min-height:100%;
+    overflow:hidden;
+  }
+
+  header{
+    padding:18px 22px 0; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+  }
+  h1{
+    font-size:15px; font-weight:600; letter-spacing:-.01em; margin:0;
+  }
+  .sub{
+    font-family:var(--mono); font-size:11px; color:var(--muted);
+    letter-spacing:.06em; text-transform:uppercase;
+  }
+
+  /* ---- stage ---- */
+  #stage{
+    flex:1; position:relative; min-height:0;
+  }
+  #pet{
+    position:absolute; right:56px; bottom:36px;
+    width:360px; height:340px;
+    cursor:grab; touch-action:none;
+  }
+  #pet.dragging{cursor:grabbing}
+  canvas{display:block; width:100%; height:100%}
+
+  /* ---- bubble ---- */
+  #bubble{
+    position:absolute; left:50%; transform:translate(-50%,0);
+    bottom:100%; margin-bottom:-6px;
+    background:rgba(23,28,41,.92);
+    border:1px solid var(--line);
+    border-radius:13px;
+    padding:8px 13px;
+    font-family:var(--mono); font-size:12px; letter-spacing:.01em;
+    white-space:nowrap;
+    backdrop-filter:blur(14px);
+    box-shadow:0 10px 34px rgba(0,0,0,.5);
+    display:flex; align-items:center; gap:9px;
+    transition:opacity .25s ease, transform .3s cubic-bezier(.2,.8,.2,1);
+    pointer-events:none;
+  }
+  #bubble::after{
+    content:""; position:absolute; left:50%; bottom:-5px; width:9px; height:9px;
+    background:rgba(23,28,41,.92);
+    border-right:1px solid var(--line); border-bottom:1px solid var(--line);
+    transform:translateX(-50%) rotate(45deg);
+  }
+  #bubble .dot{
+    width:6px; height:6px; border-radius:50%; background:var(--steel);
+    box-shadow:0 0 10px currentColor; color:var(--steel); flex:none;
+  }
+  #bubble.hidden{opacity:0; transform:translate(-50%,6px)}
+
+  /* ---- task panel ---- */
+  #hud{
+    position:absolute; left:26px; bottom:26px; width:310px;
+    background:rgba(20,24,36,.72);
+    border:1px solid var(--line); border-radius:14px;
+    padding:14px 16px 15px;
+    backdrop-filter:blur(16px);
+  }
+  #hud .eyebrow{
+    font-family:var(--mono); font-size:10px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:7px;
+  }
+  #task{font-size:14px; font-weight:500; margin-bottom:12px; min-height:20px}
+  #bar{height:2px; background:var(--line); border-radius:2px; overflow:hidden}
+  #bar > i{
+    display:block; height:100%; width:0%; background:var(--steel);
+    transition:width .4s ease;
+  }
+  #meta{
+    display:flex; gap:16px; margin-top:10px;
+    font-family:var(--mono); font-size:10.5px; color:var(--muted);
+  }
+  #meta b{color:var(--ink); font-weight:500}
+
+  /* ---- controls ---- */
+  footer{
+    border-top:1px solid var(--line);
+    background:rgba(10,12,18,.6);
+    padding:13px 22px; display:flex; gap:22px; align-items:center; flex-wrap:wrap;
+  }
+  .states{display:flex; gap:6px; flex-wrap:wrap}
+  button{
+    font-family:var(--mono); font-size:11px; letter-spacing:.02em;
+    color:var(--muted); background:transparent;
+    border:1px solid var(--line); border-radius:999px;
+    padding:6px 12px; cursor:pointer;
+    transition:color .15s, border-color .15s, background .15s;
+  }
+  button:hover{color:var(--ink); border-color:#3A4459}
+  button[aria-pressed="true"]{
+    color:var(--bg-0); background:var(--steel); border-color:var(--steel); font-weight:600;
+  }
+  button:focus-visible{outline:2px solid var(--ember); outline-offset:2px}
+  .sliders{display:flex; gap:18px; margin-left:auto; align-items:center}
+  label{
+    font-family:var(--mono); font-size:10px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted);
+    display:flex; align-items:center; gap:8px;
+  }
+  input[type=range]{width:76px; accent-color:var(--steel)}
+  .hint{
+    font-family:var(--mono); font-size:10.5px; color:var(--muted);
+    padding:0 22px 12px;
+  }
+  @media (max-width:720px){
+    #hud{display:none}
+    #pet{right:50%; transform:translateX(50%); width:300px; height:290px}
+    .sliders{margin-left:0}
+  }
+  @media (prefers-reduced-motion: reduce){
+    #bubble{transition:none}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Saber</h1>
+  <span class="sub">rig preview — state machine driven</span>
+</header>
+
+<div id="stage">
+  <div id="hud">
+    <div class="eyebrow">Current task</div>
+    <div id="task">Waiting for work</div>
+    <div id="bar"><i></i></div>
+    <div id="meta">
+      <span>elapsed <b id="m-time">0s</b></span>
+      <span>files <b id="m-files">0</b></span>
+      <span>fps <b id="m-fps">60</b></span>
+    </div>
+  </div>
+
+  <div id="pet">
+    <div id="bubble"><span class="dot"></span><span id="bubble-text">Idle</span></div>
+    <canvas id="c"></canvas>
+  </div>
+</div>
+
+<footer>
+  <div class="states" id="states"></div>
+  <div class="sliders">
+    <label>scale <input id="s-scale" type="range" min="60" max="140" value="100"></label>
+    <label>motion <input id="s-motion" type="range" min="0" max="150" value="100"></label>
+  </div>
+</footer>
+<div class="hint">Hover to be watched · click for a reaction · double-click to advance state · drag to reposition</div>
+
+<script>
+(() => {
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const petEl = document.getElementById('pet');
+const bubbleEl = document.getElementById('bubble');
+const bubbleText = document.getElementById('bubble-text');
+const taskEl = document.getElementById('task');
+const barEl = document.querySelector('#bar > i');
+const mTime = document.getElementById('m-time');
+const mFiles = document.getElementById('m-files');
+const mFps = document.getElementById('m-fps');
+
+let W = 0, H = 0, DPR = 1;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = petEl.clientWidth; H = petEl.clientHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+
+/* ---------------------------------------------------------------
+   RIG — every animated value lives here. States write to T (target),
+   the loop damps P (present) toward it. Nothing snaps.
+----------------------------------------------------------------*/
+const P = {
+  headYaw:0, headPitch:0, headTilt:0,
+  earA:0, earB:0, earTwitch:0,
+  eyeX:0, eyeY:0, lid:0, brow:0,
+  tailAmp:.18, tailSpeed:1.1, tailLift:0,
+  pawAmp:0, pawSpeed:0,
+  crouch:0, lean:0, driftX:0,
+  mouth:0, breathAmp:1, glow:0
+};
+const T = Object.assign({}, P);
+
+const damp = (a,b,rate,dt) => a + (b-a) * (1 - Math.exp(-rate*dt));
+
+/* ---------------------------------------------------------------
+   STATES — the whole behavioural surface of the companion.
+   Adding an expression = adding one entry here.
+----------------------------------------------------------------*/
+const STATES = {
+  idle: {
+    label:'idle', bubble:'Idle', task:'Waiting for work', accent:'#7E9CC4',
+    tick(t){
+      T.tailAmp=.20; T.tailSpeed=1.0; T.tailLift=0;
+      T.pawAmp=0; T.crouch=Math.sin(t*.31)*.5+.5 > .82 ? 1 : 0;
+      T.headYaw=Math.sin(t*.23)*.22; T.headPitch=Math.sin(t*.17)*.1;
+      T.headTilt=0; T.earA=Math.sin(t*.4)*.06; T.earB=-Math.sin(t*.37)*.05;
+      T.eyeX=Math.sin(t*.19)*.5; T.eyeY=Math.sin(t*.26)*.3;
+      T.brow=0; T.mouth=0; T.glow=0; T.lean=0; T.breathAmp=1;
+    }
+  },
+  thinking: {
+    label:'thinking', bubble:'Thinking…', task:'Reasoning about the request', accent:'#9B8CD4',
+    particles:'think',
+    tick(t){
+      T.tailAmp=.02; T.tailSpeed=.4; T.tailLift=.1;
+      T.pawAmp=0; T.crouch=0;
+      T.driftX = Math.sin(t*.45)*14;              // slow pacing
+      T.headPitch=-.30; T.headTilt=.16; T.headYaw=Math.sin(t*.45)*.1;
+      T.earA=.34; T.earB=.26;
+      T.eyeX=.25; T.eyeY=-.85; T.brow=.35; T.mouth=.05;
+      T.glow=.5; T.breathAmp=.85;
+    }
+  },
+  reading: {
+    label:'reading', bubble:'Reading project…', task:'Scanning repository files', accent:'#7E9CC4',
+    tick(t){
+      const scan = Math.sin(t*5.2);
+      T.tailAmp=.06; T.tailSpeed=1.6; T.tailLift=0;
+      T.pawAmp=0; T.crouch=0; T.driftX=0;
+      T.headYaw=scan*.42; T.headPitch=.08; T.headTilt=scan*.05;
+      T.eyeX=scan*1.5; T.eyeY=.2;
+      T.earA=Math.sin(t*7.3)>.9?.4:.08; T.earB=.05;
+      T.brow=.15; T.mouth=0; T.glow=.15; T.breathAmp=.9;
+    }
+  },
+  typing: {
+    label:'typing', bubble:'Generating code…', task:'Writing components', accent:'#6FC49B',
+    tick(t, st){
+      T.tailAmp=.30; T.tailSpeed=3.4; T.tailLift=.12;
+      T.pawAmp=1; T.pawSpeed=13 * (st.speed||1);
+      T.crouch=.35; T.driftX=0;
+      T.headPitch=.22; T.headYaw=Math.sin(t*2.1)*.05; T.headTilt=0;
+      T.eyeX=.4; T.eyeY=.7; T.brow=.1;
+      T.mouth=.35 + Math.sin(t*11)*.12;
+      T.earA=.05; T.earB=-.02; T.glow=.25; T.breathAmp=1.1;
+    }
+  },
+  executing: {
+    label:'executing', bubble:'Executing command…', task:'Running npm run build', accent:'#D98A55',
+    tick(t){
+      T.tailAmp=.10; T.tailSpeed=1.2; T.tailLift=.85;   // tail raised, alert
+      T.pawAmp=0; T.crouch=0;
+      T.driftX = 26;                                     // moved toward terminal
+      T.headYaw=-.10; T.headPitch=.05; T.headTilt=0;
+      T.earA=.30; T.earB=.28;
+      T.eyeX=1.1; T.eyeY=.1; T.brow=.4; T.mouth=.06;
+      T.glow=.35; T.breathAmp=1.05;
+    }
+  },
+  working: {
+    label:'long task', bubble:'Building…', task:'npm install — resolving packages', accent:'#D98A55',
+    particles:'sweat',
+    tick(t){
+      T.tailAmp=.12; T.tailSpeed=1.0; T.tailLift=.2;
+      T.pawAmp=.55; T.pawSpeed=4.5;
+      T.crouch=.55; T.driftX=0;
+      T.headPitch=.3; T.headYaw=Math.sin(t*.8)*.12; T.headTilt=Math.sin(t*.6)*.07;
+      T.eyeX=.2; T.eyeY=.6; T.brow=.3; T.mouth=.25;
+      T.earA=-.08; T.earB=-.12; T.glow=.2; T.breathAmp=1.25;
+    }
+  },
+  success: {
+    label:'success', bubble:'Finished', task:'Task complete', accent:'#6FC49B',
+    particles:'spark', badge:'✔ Task complete',
+    tick(t, st){
+      const hop = Math.max(0, Math.sin((t - st.enteredAt) * 6)) * Math.exp(-(t-st.enteredAt)*1.1);
+      T.tailAmp=.55; T.tailSpeed=7; T.tailLift=.5;
+      T.pawAmp=0; T.crouch=-hop*1.6; T.driftX=0;
+      T.headPitch=-.16; T.headYaw=0; T.headTilt=Math.sin(t*5)*.07;
+      T.eyeX=0; T.eyeY=-.2; T.brow=-.5;
+      T.mouth=.55; T.earA=.2; T.earB=.18; T.glow=.9; T.breathAmp=1.1;
+    }
+  },
+  error: {
+    label:'error', bubble:'Fixing errors…', task:'Build failed — waiting for fix', accent:'#D9605A',
+    badge:'⚠ Build failed', paw:'scratch',
+    tick(t){
+      T.tailAmp=.05; T.tailSpeed=.6; T.tailLift=-.25;
+      T.pawAmp=.8; T.pawSpeed=8;
+      T.crouch=.15; T.driftX=0;
+      T.headTilt=.34; T.headPitch=-.1; T.headYaw=.12;
+      T.eyeX=-.4; T.eyeY=-.3; T.brow=.7; T.mouth=.18;
+      T.earA=-.30; T.earB=-.26; T.glow=.3; T.breathAmp=.95;
+    }
+  },
+  sleeping: {
+    label:'sleeping', bubble:'Asleep', task:'No activity', accent:'#4C5670',
+    particles:'zzz',
+    tick(t){
+      T.tailAmp=.05; T.tailSpeed=.35; T.tailLift=-.3;
+      T.pawAmp=0; T.crouch=1.15; T.driftX=0;
+      T.headPitch=.5; T.headYaw=.1; T.headTilt=.1;
+      T.eyeX=0; T.eyeY=0; T.brow=-.1; T.mouth=0;
+      T.earA=-.2; T.earB=-.18; T.glow=0; T.breathAmp=1.5;
+    }
+  }
+};
+
+const ORDER = Object.keys(STATES);
+const st = { name:'idle', enteredAt:0, speed:1 };
+let motion = 1, userScale = 1;
+let accent = '#7E9CC4';
+
+function setState(name){
+  if(!STATES[name]) return;
+  st.name = name; st.enteredAt = time;
+  const s = STATES[name];
+  accent = s.accent;
+  bubbleEl.querySelector('.dot').style.color = accent;
+  barEl.style.background = accent;
+  taskEl.textContent = s.badge || s.task;
+  typeBubble(s.bubble);
+  document.querySelectorAll('#states button').forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset.k === name)));
+  if(name === 'success'){ progress = 1; }
+  else if(name === 'idle' || name === 'sleeping'){ progress = 0; }
+  else progress = 0.05;
+  taskStart = time;
+}
+
+/* typewriter bubble — terminal register, resizes with content */
+let typeTimer = null;
+function typeBubble(text){
+  clearInterval(typeTimer);
+  bubbleEl.classList.remove('hidden');
+  let i = 0;
+  bubbleText.textContent = '';
+  typeTimer = setInterval(() => {
+    bubbleText.textContent = text.slice(0, ++i);
+    if(i >= text.length) clearInterval(typeTimer);
+  }, 26);
+}
+
+/* ---------------------------------------------------------------
+   PARTICLES
+----------------------------------------------------------------*/
+const parts = [];
+function emit(kind, x, y){
+  if(kind === 'think')
+    parts.push({x:x+(Math.random()-.5)*12, y, vx:.15+Math.random()*.2, vy:-.35-Math.random()*.3,
+                r:1.5+Math.random()*2.5, life:1, kind, c:'#9B8CD4'});
+  if(kind === 'spark')
+    parts.push({x:x+(Math.random()-.5)*90, y:y+(Math.random()-.5)*70,
+                vx:(Math.random()-.5)*.6, vy:-.3-Math.random()*.5,
+                r:1+Math.random()*2, life:1, kind, c:'#6FC49B'});
+  if(kind === 'sweat')
+    parts.push({x:x+16, y:y-6, vx:.5, vy:-.5, r:2.4, life:1, kind, c:'#8FB6E0'});
+  if(kind === 'zzz')
+    parts.push({x:x+10, y, vx:.25, vy:-.3, r:9, life:1, kind, c:'#5C6884'});
+}
+function stepParts(dt){
+  for(let i=parts.length-1; i>=0; i--){
+    const p = parts[i];
+    p.x += p.vx*dt*60; p.y += p.vy*dt*60;
+    if(p.kind==='sweat') p.vy += .045*dt*60;
+    p.life -= dt * (p.kind==='zzz' ? .35 : .7);
+    if(p.life <= 0) parts.splice(i,1);
+  }
+}
+function drawParts(){
+  parts.forEach(p => {
+    ctx.globalAlpha = Math.max(0, p.life) * .85;
+    if(p.kind === 'zzz'){
+      ctx.fillStyle = p.c; ctx.font = '600 ' + p.r + 'px ui-monospace, monospace';
+      ctx.fillText('z', p.x, p.y);
+    } else {
+      ctx.beginPath();
+      ctx.fillStyle = p.c; ctx.shadowColor = p.c; ctx.shadowBlur = 10;
+      ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  });
+  ctx.globalAlpha = 1;
+}
+
+/* ---------------------------------------------------------------
+   DRAWING — layered vector rig, painted back to front.
+----------------------------------------------------------------*/
+const FUR_HI = '#E3A672', FUR = '#B96F44', FUR_LO = '#6D3B26', FUR_DK = '#54301F';
+const RIM = 'rgba(159,182,212,.55)';
+
+function limb(x0,y0, a1,l1, a2,l2, w, color){
+  const x1 = x0 + Math.cos(a1)*l1, y1 = y0 + Math.sin(a1)*l1;
+  const x2 = x1 + Math.cos(a2)*l2, y2 = y1 + Math.sin(a2)*l2;
+  ctx.strokeStyle = color; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.lineWidth = w;      ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+  ctx.lineWidth = w*.72;  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  // paw
+  ctx.fillStyle = color; ctx.beginPath();
+  ctx.ellipse(x2+3, y2, w*.48, w*.34, 0, 0, 7); ctx.fill();
+  return [x2,y2];
+}
+
+function drawCat(t){
+  const breath = Math.sin(t*1.5) * 2.2 * P.breathAmp * motion;
+  const bodyY  = -P.crouch*16 + breath*.4;
+  const bx = P.driftX;
+
+  ctx.save();
+  ctx.translate(W*0.5 + bx, H*0.86);
+  const s = userScale * (W/360);
+  ctx.scale(s, s);
+
+  /* contact shadow */
+  const sh = ctx.createRadialGradient(0,6,2, 0,6,110);
+  sh.addColorStop(0,'rgba(0,0,0,.55)'); sh.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle = sh; ctx.beginPath(); ctx.ellipse(0,8,110,17,0,0,7); ctx.fill();
+
+  /* ambient glow keyed to state */
+  if(P.glow > .01){
+    const g = ctx.createRadialGradient(0,-90,10, 0,-90,150);
+    g.addColorStop(0, hexA(accent, .16*P.glow)); g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0,-90,150,0,7); ctx.fill();
+  }
+
+  ctx.translate(0, bodyY);
+
+  /* ---- tail (behind everything) ---- */
+  const tw = Math.sin(t*P.tailSpeed*2) * P.tailAmp * motion;
+  ctx.strokeStyle = FUR_LO; ctx.lineCap='round';
+  ctx.lineWidth = 13;
+  ctx.beginPath();
+  ctx.moveTo(-62,-72);
+  ctx.bezierCurveTo(
+    -100, -78 - P.tailLift*26,
+    -128 + tw*30, -52 - P.tailLift*58 + tw*20,
+    -120 + tw*46, -18 - P.tailLift*80 + tw*34);
+  ctx.stroke();
+  ctx.lineWidth = 7; ctx.strokeStyle = FUR_DK;
+  ctx.beginPath();
+  ctx.moveTo(-120 + tw*46, -18 - P.tailLift*80 + tw*34);
+  ctx.lineTo(-116 + tw*54, -6 - P.tailLift*88 + tw*40);
+  ctx.stroke();
+
+  /* ---- far legs ---- */
+  const pw = Math.sin(t*P.pawSpeed) * P.pawAmp * motion;
+  const pw2 = Math.sin(t*P.pawSpeed + 2.4) * P.pawAmp * motion;
+  const walk = st.name==='thinking' ? Math.sin(t*2.6)*.28 : 0;
+  limb(-52,-70, 1.35+walk*.5, 34, 1.62-walk*.4, 34, 15, FUR_DK);         // far hind
+  limb( 40,-76, 1.48-walk*.5 - pw2*.30, 32, 1.60 + pw2*.16, 32, 14, FUR_DK); // far front
+
+  /* ---- torso ---- */
+  const bodyGrad = ctx.createLinearGradient(0,-118,0,-40);
+  bodyGrad.addColorStop(0, FUR_HI); bodyGrad.addColorStop(.55, FUR); bodyGrad.addColorStop(1, FUR_LO);
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.moveTo(-64,-70);
+  ctx.bezierCurveTo(-72,-104 - breath*.5, -30,-116 - breath, 16,-112 - breath);
+  ctx.bezierCurveTo(46,-110, 62,-100, 64,-82);
+  ctx.bezierCurveTo(66,-62, 40,-52, 4,-52);
+  ctx.bezierCurveTo(-34,-52, -58,-56, -64,-70);
+  ctx.closePath(); ctx.fill();
+
+  /* rim light along the spine — the cold room, the warm animal */
+  ctx.strokeStyle = RIM; ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(-62,-74);
+  ctx.bezierCurveTo(-70,-104 - breath*.5, -30,-116 - breath, 16,-112 - breath);
+  ctx.bezierCurveTo(40,-110, 56,-102, 62,-88);
+  ctx.stroke();
+
+  /* ---- near legs ---- */
+  limb(-48,-68, 1.30-walk*.5, 34, 1.66+walk*.4, 34, 16, FUR);
+  const scratch = (STATES[st.name].paw==='scratch');
+  limb(44,-74,
+       1.46 + walk*.5 - pw*.42 + (scratch? -1.0 : 0),
+       31,
+       1.58 + pw*.24 + (scratch? -.5 : 0),
+       31, 15, FUR_HI);
+
+  /* ---- head group ---- */
+  ctx.save();
+  ctx.translate(56,-104);
+  ctx.rotate(P.headTilt*.7);
+  ctx.translate(P.headYaw*11, P.headPitch*10 + breath*.3);
+
+  // neck wedge
+  ctx.fillStyle = FUR; ctx.beginPath();
+  ctx.moveTo(-16,10); ctx.quadraticCurveTo(-4,-6, 14,-8);
+  ctx.lineTo(16,14); ctx.quadraticCurveTo(0,20, -16,10); ctx.closePath(); ctx.fill();
+
+  // ears (far first)
+  ear(-6,-30, -0.55 + P.earB, FUR_LO);
+  ear(14,-32,  0.10 + P.earA, FUR);
+
+  // skull
+  const hg = ctx.createLinearGradient(0,-30,0,18);
+  hg.addColorStop(0,FUR_HI); hg.addColorStop(.6,FUR); hg.addColorStop(1,FUR_LO);
+  ctx.fillStyle = hg;
+  ctx.beginPath();
+  ctx.moveTo(-14,-8);
+  ctx.bezierCurveTo(-16,-30, 8,-36, 22,-26);
+  ctx.bezierCurveTo(36,-18, 40,-6, 38,2);
+  ctx.bezierCurveTo(36,12, 20,18, 2,16);
+  ctx.bezierCurveTo(-10,14, -14,4, -14,-8);
+  ctx.closePath(); ctx.fill();
+
+  // muzzle
+  ctx.fillStyle = '#E9C39A';
+  ctx.beginPath(); ctx.ellipse(31,4,10,7.5,-.15,0,7); ctx.fill();
+  ctx.fillStyle = '#3A2117';
+  ctx.beginPath(); ctx.ellipse(38,-.5,2.6,2,0,0,7); ctx.fill();
+
+  // mouth
+  if(P.mouth > .02){
+    ctx.fillStyle = '#4A1F22';
+    ctx.beginPath(); ctx.ellipse(32,9, 6.5, 1.5 + P.mouth*5, .1, 0, 7); ctx.fill();
+  }
+
+  // sabers — the silhouette read
+  ctx.fillStyle = '#F3EFE6';
+  [0,1].forEach(i => {
+    const ox = 30 - i*6, oy = 8 + i*1;
+    ctx.beginPath();
+    ctx.moveTo(ox-2.6, oy); ctx.lineTo(ox+2.4, oy);
+    ctx.quadraticCurveTo(ox+1.4, oy+18, ox-1.6, oy+21);
+    ctx.closePath(); ctx.globalAlpha = i? .55 : 1; ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // brow
+  ctx.strokeStyle = FUR_DK; ctx.lineWidth = 2.4; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(10,-13 + P.brow*3.5); ctx.lineTo(24,-16 - P.brow*1.5 + P.brow*6);
+  ctx.stroke();
+
+  // eye
+  const ex = 19, ey = -5;
+  ctx.fillStyle = '#F6F3EC';
+  ctx.beginPath(); ctx.ellipse(ex,ey,6.6,5.6,0,0,7); ctx.fill();
+  const irisX = ex + P.eyeX*2.6, irisY = ey + P.eyeY*2.0;
+  const ig = ctx.createRadialGradient(irisX-1,irisY-1,.5, irisX,irisY,4.6);
+  ig.addColorStop(0,'#F0C46B'); ig.addColorStop(1,'#8A5416');
+  ctx.fillStyle = ig;
+  ctx.beginPath(); ctx.arc(irisX,irisY,4.4,0,7); ctx.fill();
+  ctx.fillStyle = '#140C08';
+  ctx.beginPath(); ctx.ellipse(irisX,irisY, 1.5 + (1-P.glow)*.5, 3.4, 0,0,7); ctx.fill();
+  // specular
+  ctx.fillStyle = 'rgba(255,255,255,.95)';
+  ctx.beginPath(); ctx.arc(irisX-1.7, irisY-2, 1.35, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(190,215,255,.6)';
+  ctx.beginPath(); ctx.arc(irisX+1.9, irisY+1.6, .8, 0, 7); ctx.fill();
+  // lid
+  if(P.lid > .02){
+    ctx.fillStyle = hg;
+    ctx.beginPath(); ctx.ellipse(ex, ey - 6 + P.lid*6.2, 7.2, 6, 0,0,7); ctx.fill();
+  }
+
+  ctx.restore(); // head
+  ctx.restore(); // world
+
+  return {headX: W*0.5 + bx + (56 + P.headYaw*11)*s, headY: H*0.86 + bodyY + (-104 + P.headPitch*10)*s};
+}
+
+function ear(x,y,rot,color){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(rot);
+  ctx.fillStyle = color; ctx.beginPath();
+  ctx.moveTo(-6,6); ctx.lineTo(1,-11); ctx.lineTo(9,4);
+  ctx.quadraticCurveTo(2,8,-6,6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(60,26,18,.5)'; ctx.beginPath();
+  ctx.moveTo(-2,4); ctx.lineTo(1.5,-6); ctx.lineTo(5.5,3); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function hexA(hex,a){
+  const n = parseInt(hex.slice(1),16);
+  return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;
+}
+
+/* ---------------------------------------------------------------
+   INTERACTION
+----------------------------------------------------------------*/
+let mouse = {x:0, y:0, over:false};
+petEl.addEventListener('pointermove', e => {
+  const r = petEl.getBoundingClientRect();
+  mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; mouse.over = true;
+});
+petEl.addEventListener('pointerleave', () => mouse.over = false);
+
+let react = 0;
+petEl.addEventListener('click', () => { react = 1; });
+petEl.addEventListener('dblclick', () => {
+  const i = ORDER.indexOf(st.name);
+  setState(ORDER[(i+1) % ORDER.length]);
+});
+
+/* drag to reposition */
+let drag = null;
+petEl.addEventListener('pointerdown', e => {
+  drag = {x:e.clientX, y:e.clientY,
+          r: parseFloat(getComputedStyle(petEl).right),
+          b: parseFloat(getComputedStyle(petEl).bottom)};
+  petEl.setPointerCapture(e.pointerId); petEl.classList.add('dragging');
+});
+petEl.addEventListener('pointerup', e => {
+  drag = null; petEl.classList.remove('dragging');
+  petEl.releasePointerCapture(e.pointerId);
+});
+window.addEventListener('pointermove', e => {
+  if(!drag) return;
+  petEl.style.right = Math.max(0, drag.r - (e.clientX - drag.x)) + 'px';
+  petEl.style.bottom = Math.max(0, drag.b - (e.clientY - drag.y)) + 'px';
+});
+
+/* controls */
+const statesEl = document.getElementById('states');
+ORDER.forEach(k => {
+  const b = document.createElement('button');
+  b.textContent = STATES[k].label; b.dataset.k = k;
+  b.setAttribute('aria-pressed', String(k==='idle'));
+  b.onclick = () => setState(k);
+  statesEl.appendChild(b);
+});
+document.getElementById('s-scale').oninput = e => userScale = e.target.value/100;
+document.getElementById('s-motion').oninput = e => motion = e.target.value/100;
+document.addEventListener('keydown', e => {
+  const n = parseInt(e.key,10);
+  if(n>=1 && n<=ORDER.length) setState(ORDER[n-1]);
+});
+
+/* ---------------------------------------------------------------
+   LOOP
+----------------------------------------------------------------*/
+let time = 0, last = performance.now(), blinkAt = 2, blinkT = -1;
+let progress = 0, taskStart = 0, files = 0, fileAcc = 0;
+let fpsAcc = 0, fpsN = 0;
+
+function frame(now){
+  const dt = Math.min(.05, (now - last)/1000); last = now; time += dt;
+
+  // fps meter
+  fpsAcc += 1/dt; fpsN++;
+  if(fpsN >= 30){ mFps.textContent = Math.round(fpsAcc/fpsN); fpsAcc=0; fpsN=0; }
+
+  // state drives targets
+  STATES[st.name].tick(time, st);
+
+  // hover overrides: look at the cursor, soften the face
+  if(mouse.over && !drag){
+    const dx = (mouse.x - W*0.62)/ (W*0.5);
+    const dy = (mouse.y - H*0.62)/ (H*0.5);
+    T.eyeX = Math.max(-1.6, Math.min(1.6, dx*1.6));
+    T.eyeY = Math.max(-1.2, Math.min(1.2, dy*1.2));
+    T.headYaw = Math.max(-.5, Math.min(.5, dx*.4));
+    T.headPitch = Math.max(-.4, Math.min(.4, dy*.35));
+    T.mouth = Math.max(T.mouth, .22); T.brow = Math.min(T.brow, .1);
+    T.tailAmp = Math.max(T.tailAmp, .4); T.tailSpeed = Math.max(T.tailSpeed, 2.6);
+  }
+  // click reaction: a quick perk-up
+  if(react > 0){
+    react -= dt*1.6;
+    T.earA += .5*react; T.earB += .45*react;
+    T.crouch -= .5*react; T.headTilt += .25*react; T.mouth = Math.max(T.mouth,.4);
+    if(react < 0) react = 0;
+  }
+
+  // blink — random cadence, faster when focused
+  blinkAt -= dt;
+  if(blinkAt <= 0){ blinkT = .13; blinkAt = 1.6 + Math.random()*4.5; }
+  if(blinkT > 0){ blinkT -= dt; T.lid = Math.sin((1 - blinkT/.13) * Math.PI); }
+  else T.lid = st.name==='sleeping' ? 1 : 0;
+
+  // damp everything
+  for(const k in P){
+    const rate = (k==='lid') ? 40 : (k==='driftX' ? 2.2 : 7);
+    P[k] = damp(P[k], T[k], rate*(k==='lid'?1:Math.max(.35,motion)), dt);
+  }
+
+  // paint
+  ctx.clearRect(0,0,W,H);
+  const head = drawCat(time);
+
+  // particles keyed to state
+  const pk = STATES[st.name].particles;
+  if(pk && Math.random() < (pk==='spark' ? .55 : pk==='think' ? .22 : .05))
+    emit(pk, head.headX, head.headY - 34);
+  stepParts(dt); drawParts();
+
+  // live progress simulation (stands in for real telemetry)
+  if(['typing','executing','working','reading'].includes(st.name)){
+    progress = Math.min(.97, progress + dt*(st.name==='working'? .045 : .12));
+    fileAcc += dt * (st.name==='reading' ? 9 : 1.5);
+    files = Math.floor(fileAcc);
+  }
+  barEl.style.width = (progress*100).toFixed(1) + '%';
+  mTime.textContent = Math.floor(time - taskStart) + 's';
+  mFiles.textContent = files;
+
+  requestAnimationFrame(frame);
+}
+resize();
+setState('idle');
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

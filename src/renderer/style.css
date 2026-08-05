@@ -1,0 +1,200 @@
+/* Overlay chrome. The page itself is fully transparent — only the bubble,
+   the task panel and the canvas paint anything. Palette matches the prototype. */
+
+:root {
+  --panel: rgba(20, 24, 36, 0.72);
+  --bubble: rgba(23, 28, 41, 0.92);
+  --line: #252c3d;
+  --ink: #e6e8ee;
+  --muted: #79839b;
+  --accent: #7e9cc4;
+  --mono: ui-monospace, 'Cascadia Mono', Consolas, Menlo, monospace;
+  --sans: 'Inter', ui-sans-serif, system-ui, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--sans);
+  /* The window forwards mouse events; only the character opts back in. */
+  user-select: none;
+  cursor: default;
+}
+
+#overlay {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+/* ---- task panel ---- */
+#hud {
+  width: 288px;
+  margin-bottom: 26px;
+  padding: 14px 16px 15px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  backdrop-filter: blur(16px);
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+#hud[hidden] {
+  display: none;
+}
+
+#hud.dimmed {
+  opacity: 0.35;
+}
+
+#hud .eyebrow {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+
+#task {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  min-height: 20px;
+  line-height: 1.35;
+}
+
+#bar {
+  height: 2px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+#bar > i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition:
+    width 0.4s ease,
+    background 0.3s ease;
+}
+
+/* An unknown-progress task shows a drifting sliver rather than a fake value. */
+#bar.indeterminate > i {
+  width: 28%;
+  animation: sweep 1.6s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(360%);
+  }
+}
+
+#meta {
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+#meta b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ---- character ---- */
+#character {
+  position: relative;
+  flex: 1;
+  height: 100%;
+}
+
+#stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#bubble {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  transform: translate(-50%, 0);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: 92%;
+  padding: 8px 13px;
+  background: var(--bubble);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+  transition:
+    opacity 0.25s ease,
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+
+#bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 9px;
+  height: 9px;
+  background: var(--bubble);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+#bubble .dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 10px currentColor;
+}
+
+#bubble.hidden {
+  opacity: 0;
+  transform: translate(-50%, -6px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #bubble,
+  #bar > i,
+  #hud {
+    transition: none;
+  }
+  #bar.indeterminate > i {
+    animation: none;
+  }
+}

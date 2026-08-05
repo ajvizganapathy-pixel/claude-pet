@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:;"
+    />
+    <title>Saber</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="overlay">
+      <aside id="hud" aria-hidden="true">
+        <div class="eyebrow">Current task</div>
+        <div id="task">Waiting for work</div>
+        <div id="bar"><i></i></div>
+        <div id="meta">
+          <span>elapsed <b id="m-time">0s</b></span>
+          <span>files <b id="m-files">0</b></span>
+        </div>
+      </aside>
+
+      <div id="character">
+        <div id="bubble"><span class="dot"></span><span id="bubble-text">Idle</span></div>
+        <canvas id="stage"></canvas>
+      </div>
+    </div>
+    <script type="module" src="boot.js"></script>
+  </body>
+</html>
