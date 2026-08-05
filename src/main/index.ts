@@ -12,6 +12,9 @@ import { SettingsStore } from './config/settingsStore.js';
 import { watchRendererForReload } from './dev/devReload.js';
 import { registerIpc } from './ipc/bridge.js';
 import { allowsCompanion, ForegroundWatcher } from './platform/foregroundWatcher.js';
+import { LogTailer } from './sources/logTailer.js';
+import { StatePipeServer } from './sources/pipeServer.js';
+import { StateArbiter } from './sources/stateArbiter.js';
 import { CompanionTray } from './tray.js';
 import { resolveAssetPaths } from './window/companionWindow.js';
 
@@ -59,13 +62,38 @@ async function bootstrap(): Promise<void> {
   companion.onVisibilityChanged(() => tray.rebuild());
   settings.on('change', () => tray.rebuild());
 
+  // State sources, wired through the arbiter that implements the fallback
+  // ladder: pipe (exact) over log inference (best effort) over focus alone.
+  const arbiter = new StateArbiter();
+  arbiter.on('state', (event) => {
+    log.debug(`state -> ${event.state} (${event.label})`);
+    companion.setState(event);
+    tray.setState(event);
+  });
+  arbiter.start();
+
+  const pipe = new StatePipeServer();
+  pipe.on('state', (event) => arbiter.submit(event));
+  const pipeReady = await pipe.start();
+
+  const logTailer = new LogTailer(LogTailer.defaultLogPath(app.getPath('appData')));
+  logTailer.on('state', (event) => arbiter.submit(event));
+  const logsReady = await logTailer.start();
+
   // Follow Claude Desktop's focus. `unknown` counts as permission to show:
   // hiding because a query failed is worse than a moment of over-eagerness.
   const foreground = new ForegroundWatcher({
     ownPids: () => [process.pid],
   });
-  foreground.on('change', (owner) => companion.setFocusAllows(allowsCompanion(owner)));
-  foreground.start();
+  foreground.on('change', (owner) => {
+    companion.setFocusAllows(allowsCompanion(owner));
+    arbiter.setClaudeFocused(owner === 'claude');
+  });
+  const focusReady = foreground.start();
+
+  log.info(
+    `state sources — pipe:${yesNo(pipeReady)} logs:${yesNo(logsReady)} focus:${yesNo(focusReady)}`,
+  );
 
   const disposeIpc = registerIpc({
     settings,
@@ -88,6 +116,9 @@ async function bootstrap(): Promise<void> {
   app.on('before-quit', () => {
     stopDevWatch?.();
     foreground.stop();
+    logTailer.stop();
+    pipe.stop();
+    arbiter.stop();
     disposeIpc();
     tray.destroy();
     void settings.flush();
@@ -95,3 +126,5 @@ async function bootstrap(): Promise<void> {
 
   log.info('saber ready', isDev ? '(development)' : '');
 }
+
+const yesNo = (value: boolean): string => (value ? 'yes' : 'no');
