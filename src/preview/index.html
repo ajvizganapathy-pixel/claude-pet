@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Saber — rig preview</title>
+    <link rel="stylesheet" href="preview.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Saber</h1>
+      <span class="sub">rig preview — the shipped renderer, outside Electron</span>
+    </header>
+
+    <main>
+      <div id="grid"></div>
+    </main>
+
+    <footer>
+      <label>motion <input id="motion" type="range" min="0" max="150" value="100" /></label>
+      <span class="fps">fps <b id="fps">60</b> · frame <b id="frame">0.0</b>ms</span>
+    </footer>
+    <script type="module" src="preview.js"></script>
+  </body>
+</html>

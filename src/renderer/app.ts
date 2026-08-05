@@ -10,9 +10,9 @@ import type { StateEvent, StateName } from '@shared/protocol.js';
 import { DEFAULT_SETTINGS, type Settings } from '@shared/settings.js';
 import { descriptorFor } from '@shared/states.js';
 import { RenderLoop, type Frame } from './engine/loop.js';
-import type { CompanionScene } from './engine/scene.js';
+import type { CompanionScene as CompanionSceneContract } from './engine/scene.js';
 import { CanvasSurface } from './engine/surface.js';
-import { PlaceholderScene } from './scenes/placeholderScene.js';
+import { CompanionScene } from './scenes/companionScene.js';
 import { Bubble } from './ui/bubble.js';
 import { TaskPanel, type TaskPanelElements } from './ui/taskPanel.js';
 
@@ -36,7 +36,7 @@ export interface AppElements extends TaskPanelElements {
 export class RendererApp {
   private readonly surface: CanvasSurface;
   private readonly loop: RenderLoop;
-  private readonly scene: CompanionScene;
+  private readonly scene: CompanionSceneContract;
   private readonly bubble: Bubble;
   private readonly taskPanel: TaskPanel;
   private readonly reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -48,7 +48,7 @@ export class RendererApp {
 
   constructor(private readonly els: AppElements) {
     this.surface = new CanvasSurface(els.canvas);
-    this.scene = new PlaceholderScene();
+    this.scene = new CompanionScene();
     this.loop = new RenderLoop((frame) => this.onFrame(frame));
     this.bubble = new Bubble(els.bubble, els.bubbleText);
     this.taskPanel = new TaskPanel(els);
@@ -106,7 +106,6 @@ export class RendererApp {
     this.taskPanel.setVisible(settings.showTaskPanel);
     this.bubble.setAnimated(!reduced);
     this.scene.setMotion(settings.motion * (reduced ? REDUCED_MOTION_FACTOR : 1));
-    this.scene.setScale(settings.scale);
     this.updateFrameRate();
   }
 
@@ -116,6 +115,7 @@ export class RendererApp {
 
     document.documentElement.style.setProperty('--accent', descriptor.accent);
     this.scene.setAccent(descriptor.accent);
+    this.scene.setState(event);
     this.bubble.show(event.label || descriptor.bubble);
     this.taskPanel.setState(event);
     this.updateFrameRate();

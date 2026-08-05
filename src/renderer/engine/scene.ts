@@ -6,6 +6,7 @@
  * function of the resulting values.
  */
 
+import type { StateEvent } from '@shared/protocol.js';
 import type { Frame } from './loop.js';
 import type { Viewport } from './surface.js';
 
@@ -17,12 +18,15 @@ export interface Scene {
 }
 
 /**
- * A scene that represents the companion. The app configures these three
- * presentation inputs; everything else the scene derives for itself.
+ * A scene that represents the companion. The app hands it presentation inputs
+ * and the current state; everything else the scene derives for itself.
+ *
+ * There is no scale input: the character auto-fits the viewport, and the
+ * user's scale setting resizes the window, which resizes the viewport.
  */
 export interface CompanionScene extends Scene {
   setAccent(hex: string): void;
   /** Global motion multiplier, already adjusted for reduced-motion. */
   setMotion(motion: number): void;
-  setScale(scale: number): void;
+  setState(event: StateEvent): void;
 }

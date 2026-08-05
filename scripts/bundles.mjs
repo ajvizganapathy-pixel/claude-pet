@@ -68,6 +68,18 @@ export function bundles(dev) {
       },
     },
     {
+      // Developer tool: every state side by side, running the shipped renderer.
+      name: 'preview',
+      options: {
+        ...shared,
+        entryPoints: [path.join(root, 'src/preview/preview.ts')],
+        outfile: path.join(outDir, 'preview/preview.js'),
+        platform: 'browser',
+        format: 'esm',
+        target: 'chrome128',
+      },
+    },
+    {
       name: 'mcp',
       options: {
         ...shared,
@@ -87,4 +99,6 @@ export const staticAssets = [
   { from: 'src/renderer/index.html', to: 'dist/renderer/index.html' },
   { from: 'src/renderer/style.css', to: 'dist/renderer/style.css' },
   { from: 'src/renderer/settings.html', to: 'dist/renderer/settings.html' },
+  { from: 'src/preview/index.html', to: 'dist/preview/index.html' },
+  { from: 'src/preview/preview.css', to: 'dist/preview/preview.css' },
 ];
