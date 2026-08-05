@@ -11,8 +11,10 @@
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "start": "npm run build && electron .",
+    "register": "node scripts/build.mjs && node dist/mcp/register.js",
     "icons": "node scripts/generate-icons.mjs",
     "typecheck": "tsc --noEmit",
+    "pretest": "node scripts/build.mjs",
     "test": "node scripts/test.mjs"
   },
   "devDependencies": {
@@ -22,6 +24,7 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "koffi": "^3.1.4"
   }
 }

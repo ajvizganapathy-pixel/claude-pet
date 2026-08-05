@@ -13,11 +13,7 @@
 import { EventEmitter } from 'node:events';
 import net from 'node:net';
 import { createLogger } from '@shared/log.js';
-import {
-  PIPE_PATH,
-  parseStateEvent,
-  type SourcedStateEvent,
-} from '@shared/protocol.js';
+import { parseStateEvent, resolvePipePath, type SourcedStateEvent } from '@shared/protocol.js';
 
 const log = createLogger('pipe');
 
@@ -33,7 +29,7 @@ export class StatePipeServer extends EventEmitter {
   private server: net.Server | null = null;
   private readonly sockets = new Set<net.Socket>();
 
-  constructor(private readonly pipePath: string = PIPE_PATH) {
+  constructor(private readonly pipePath: string = resolvePipePath()) {
     super();
   }
 

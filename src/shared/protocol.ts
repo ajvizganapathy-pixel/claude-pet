@@ -113,5 +113,12 @@ export const WORKING_THRESHOLD_MS = 8_000;
 /** Named pipe the MCP server writes to and the main process listens on. */
 export const PIPE_PATH = '\\\\.\\pipe\\saber';
 
+/**
+ * The pipe both ends should use. `SABER_PIPE` overrides it, which lets tests
+ * (and two developers on one machine) run without fighting over the endpoint.
+ */
+export const resolvePipePath = (env: NodeJS.ProcessEnv = process.env): string =>
+  env['SABER_PIPE'] || PIPE_PATH;
+
 /** Wire framing for the pipe: newline-delimited JSON, one event per line. */
 export const PIPE_DELIMITER = '\n';

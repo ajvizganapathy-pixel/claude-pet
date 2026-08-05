@@ -25,6 +25,31 @@ npm start          # build, then run
 npm run typecheck  # tsc --noEmit
 ```
 
+## Connecting it to Claude Desktop
+
+```bash
+npm run register
+```
+
+This merges an entry into `%APPDATA%\Claude\claude_desktop_config.json`,
+preserving every other server and key, after taking a backup alongside it.
+Use `npm run register -- --check` to see what it would do first, and
+`npm run register -- --remove` to undo it.
+
+Then **quit Claude Desktop from the tray and reopen it** — the config is read
+only at launch, so closing the window is not enough.
+
+The companion works without this: it also infers state passively by tailing
+`%APPDATA%\Claude\logs\mcp.log`, which records tool calls from every MCP
+server. Registering adds the signals no log line contains — that a task
+*finished*, whether it succeeded, and how far along it is.
+
+To exercise a state by hand while the app is running:
+
+```bash
+node scripts/send-state.mjs executing "Running tests…" "npm test"
+```
+
 ## Layout
 
 ```

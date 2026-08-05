@@ -11,10 +11,14 @@ const outDir = path.join(root, 'dist');
 const electronExternals = ['electron'];
 
 /**
- * Modules resolved at runtime rather than bundled: koffi ships a `.node`
- * binary esbuild cannot inline, and the MCP SDK is loaded by the server child.
+ * koffi ships a `.node` binary esbuild cannot inline, so it stays external and
+ * is loaded from node_modules at runtime.
+ *
+ * The MCP SDK is deliberately *not* external: bundling it makes dist/mcp
+ * self-contained, so the path registered in Claude Desktop's config keeps
+ * working regardless of how the app was installed or packed.
  */
-export const runtimeExternals = ['koffi', '@modelcontextprotocol/sdk'];
+export const runtimeExternals = ['koffi'];
 
 const common = {
   bundle: true,
@@ -86,8 +90,8 @@ export function bundles(dev) {
       name: 'mcp',
       options: {
         ...shared,
-        entryPoints: [path.join(root, 'src/mcp/server.ts')],
-        outfile: path.join(outDir, 'mcp/server.js'),
+        entryPoints: [path.join(root, 'src/mcp/server.ts'), path.join(root, 'src/mcp/register.ts')],
+        outdir: path.join(outDir, 'mcp'),
         platform: 'node',
         format: 'cjs',
         target: 'node20',
