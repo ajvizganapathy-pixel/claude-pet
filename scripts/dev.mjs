@@ -55,7 +55,7 @@ function launch() {
     cwd: root,
     stdio: 'inherit',
     windowsHide: false,
-    env: { ...process.env, SABER_DEV: '1' },
+    env: { SABER_LOG: 'debug', ...process.env, SABER_DEV: '1' },
   });
   electron.on('error', (err) => {
     console.error('saber: could not start Electron —', err.message);

@@ -30,9 +30,15 @@ async function bootstrap(): Promise<void> {
 
   const settings = new SettingsStore(path.join(app.getPath('userData'), 'settings.json'));
   settings.load();
-  setLogLevel(settings.value.logLevel);
+
+  // SABER_LOG overrides the stored level, so a debugging session never has to
+  // edit (and then remember to revert) the user's settings file.
+  const envLevel = process.env['SABER_LOG'] as Parameters<typeof setLogLevel>[0] | undefined;
+  const applyLogLevel = (level: Parameters<typeof setLogLevel>[0]): void =>
+    setLogLevel(envLevel ?? level);
+  applyLogLevel(settings.value.logLevel);
   settings.on('change', (next: { logLevel: Parameters<typeof setLogLevel>[0] }) => {
-    setLogLevel(next.logLevel);
+    applyLogLevel(next.logLevel);
   });
 
   const companion = new Companion(settings, resolveAssetPaths(app.getAppPath()));

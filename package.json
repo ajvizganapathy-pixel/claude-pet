@@ -12,7 +12,7 @@
     "build": "node scripts/build.mjs",
     "start": "npm run build && electron .",
     "typecheck": "tsc --noEmit",
-    "test": "node --test test/**/*.test.mjs"
+    "test": "node scripts/test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

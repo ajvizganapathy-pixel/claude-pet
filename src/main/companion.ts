@@ -59,12 +59,26 @@ export class Companion {
       if (this.window === window) this.window = null;
     });
 
+    // A renderer exception is otherwise invisible: the overlay simply stops
+    // painting with nothing in any log to say why.
+    window.webContents.on('render-process-gone', (_event, details) => {
+      log.error('renderer process gone', details.reason);
+    });
+    // Electron 33 signature: (event, level, message, line, sourceId).
+    // Levels are 0 verbose … 3 error.
+    window.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+      const where = sourceId ? ` (${sourceId}:${line})` : '';
+      if (level >= 3) log.error(`renderer: ${message}${where}`);
+      else log.debug(`renderer: ${message}`);
+    });
+
     return window;
   }
 
   /** Called by the IPC bridge once the renderer has mounted. */
   markReady(): void {
     this.rendererReady = true;
+    log.debug('renderer ready');
     this.push(PUSH.settings, this.settings.value);
     if (this.lastState) this.push(PUSH.state, this.lastState);
     this.push(PUSH.visibility, { visible: this.isVisible() } satisfies VisibilityPayload);
