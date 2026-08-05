@@ -116,6 +116,10 @@ export function createCompanionWindow(settings: Settings, deps: CompanionWindowD
   });
 
   window.setAlwaysOnTop(true, 'screen-saver');
+  // Click-through is the default state: the renderer asks for interactivity
+  // only while the cursor is over the character. `forward: true` keeps mouse
+  // move messages flowing so it can keep hit-testing while ignored.
+  window.setIgnoreMouseEvents(true, { forward: true });
   // Keep the overlay present when the user switches virtual desktops.
   window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 

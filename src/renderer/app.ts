@@ -12,6 +12,7 @@ import { descriptorFor } from '@shared/states.js';
 import { RenderLoop, type Frame } from './engine/loop.js';
 import type { CompanionScene as CompanionSceneContract } from './engine/scene.js';
 import { CanvasSurface } from './engine/surface.js';
+import { HitTester } from './input/hitTest.js';
 import { PointerTracker } from './input/pointerTracker.js';
 import { CompanionScene } from './scenes/companionScene.js';
 import { Bubble } from './ui/bubble.js';
@@ -41,6 +42,8 @@ export class RendererApp {
   private readonly bubble: Bubble;
   private readonly taskPanel: TaskPanel;
   private readonly pointer: PointerTracker;
+  private readonly hitTester: HitTester;
+  private canvasOffset = { x: 0, y: 0 };
   private readonly reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   private readonly disposers: (() => void)[] = [];
 
@@ -54,15 +57,27 @@ export class RendererApp {
     this.loop = new RenderLoop((frame) => this.onFrame(frame));
     this.bubble = new Bubble(els.bubble, els.bubbleText);
     this.taskPanel = new TaskPanel(els);
+
+    this.hitTester = new HitTester({
+      onChange: (inside) => window.saber.setHover({ inside }),
+    });
+
     this.pointer = new PointerTracker(els.canvas, {
       onMove: (point) => this.scene.setPointer(point),
-      onPress: () => undefined,
-      onDrag: () => undefined,
+      onPress: () => this.hitTester.setLocked(true),
+      onDrag: ({ dx, dy }) => window.saber.drag({ phase: 'move', dx, dy }),
       onRelease: (moved) => {
-        if (!moved) this.scene.poke();
+        this.hitTester.setLocked(false);
+        if (moved) window.saber.drag({ phase: 'end', dx: 0, dy: 0 });
+        else this.scene.poke();
       },
       onContextMenu: () => window.saber.openSettings(),
     });
+
+    // The canvas only moves when the window resizes, so its offset is cached
+    // rather than measured every frame.
+    this.surface.onResize(() => this.measureCanvasOffset());
+    this.measureCanvasOffset();
   }
 
   async start(): Promise<void> {
@@ -94,6 +109,7 @@ export class RendererApp {
     this.disposers.length = 0;
     this.loop.stop();
     this.pointer.destroy();
+    this.hitTester.destroy();
     this.scene.destroy?.();
     this.surface.destroy();
     this.bubble.destroy();
@@ -109,6 +125,21 @@ export class RendererApp {
     this.surface.clear();
     this.scene.draw(this.surface.ctx, this.surface.viewport, frame);
     this.taskPanel.tick();
+
+    // The character drifts, so the interactive region is republished each
+    // frame in window coordinates. This is arithmetic only — no layout.
+    const bounds = this.scene.silhouetteBounds(this.surface.viewport);
+    this.hitTester.setBounds({
+      x: bounds.x + this.canvasOffset.x,
+      y: bounds.y + this.canvasOffset.y,
+      width: bounds.width,
+      height: bounds.height,
+    });
+  }
+
+  private measureCanvasOffset(): void {
+    const rect = this.els.canvas.getBoundingClientRect();
+    this.canvasOffset = { x: rect.left, y: rect.top };
   }
 
   private applySettings(settings: Settings): void {
@@ -116,6 +147,9 @@ export class RendererApp {
     const reduced = this.prefersReducedMotion();
 
     this.taskPanel.setVisible(settings.showTaskPanel);
+    // Showing or hiding the panel moves the canvas, so the cached offset the
+    // hit-tester depends on has to be re-read.
+    this.measureCanvasOffset();
     this.bubble.setAnimated(!reduced);
     this.scene.setMotion(settings.motion * (reduced ? REDUCED_MOTION_FACTOR : 1));
     this.updateFrameRate();

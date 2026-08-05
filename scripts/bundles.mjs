@@ -10,8 +10,11 @@ const outDir = path.join(root, 'dist');
 /** Electron's own modules are provided at runtime and must never be bundled. */
 const electronExternals = ['electron'];
 
-/** Optional native/heavy modules resolved at runtime, tolerated when absent. */
-const runtimeExternals = ['koffi', '@modelcontextprotocol/sdk'];
+/**
+ * Modules resolved at runtime rather than bundled: koffi ships a `.node`
+ * binary esbuild cannot inline, and the MCP SDK is loaded by the server child.
+ */
+export const runtimeExternals = ['koffi', '@modelcontextprotocol/sdk'];
 
 const common = {
   bundle: true,

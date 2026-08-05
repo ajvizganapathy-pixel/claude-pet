@@ -9,7 +9,7 @@ import { build } from 'esbuild';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { root } from './bundles.mjs';
+import { root, runtimeExternals } from './bundles.mjs';
 
 const testDir = path.join(root, 'test');
 const outDir = path.join(root, 'dist/test');
@@ -35,7 +35,7 @@ await build({
   sourcemap: 'inline',
   logLevel: 'warning',
   alias: { '@shared': path.join(root, 'src/shared') },
-  external: ['node:*'],
+  external: ['node:*', 'electron', ...runtimeExternals],
 });
 
 // Explicit file list rather than a directory: Node's positional test

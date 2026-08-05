@@ -32,6 +32,8 @@ export class Companion {
   private wanted: boolean;
   /** Whether focus tracking currently permits showing it. */
   private focusAllows = true;
+  private visibilityListener: ((visible: boolean) => void) | null = null;
+  private lastNotifiedVisibility: boolean | null = null;
 
   constructor(
     private readonly settings: SettingsStore,
@@ -114,14 +116,28 @@ export class Companion {
     return this.wanted && (this.focusAllows || !this.settings.value.followClaudeFocus);
   }
 
+  /** Notified whenever the overlay's effective visibility changes. */
+  onVisibilityChanged(listener: (visible: boolean) => void): void {
+    this.visibilityListener = listener;
+  }
+
   private applyVisibility(): void {
     const window = this.ensureWindow();
     const visible = this.isVisible();
 
-    if (visible && !window.isVisible()) window.showInactive();
+    if (visible && !window.isVisible()) {
+      window.showInactive();
+      // Re-arm click-through: showing a window resets nothing, but an earlier
+      // hover that ended while hidden would otherwise leave it interactive.
+      this.setInteractive(false);
+    }
     if (!visible && window.isVisible()) window.hide();
 
     this.push(PUSH.visibility, { visible } satisfies VisibilityPayload);
+    if (visible !== this.lastNotifiedVisibility) {
+      this.lastNotifiedVisibility = visible;
+      this.visibilityListener?.(visible);
+    }
   }
 
   /** Moves the window by a delta and remembers the new position. */
