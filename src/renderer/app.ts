@@ -12,6 +12,7 @@ import { descriptorFor } from '@shared/states.js';
 import { RenderLoop, type Frame } from './engine/loop.js';
 import type { CompanionScene as CompanionSceneContract } from './engine/scene.js';
 import { CanvasSurface } from './engine/surface.js';
+import { PointerTracker } from './input/pointerTracker.js';
 import { CompanionScene } from './scenes/companionScene.js';
 import { Bubble } from './ui/bubble.js';
 import { TaskPanel, type TaskPanelElements } from './ui/taskPanel.js';
@@ -39,6 +40,7 @@ export class RendererApp {
   private readonly scene: CompanionSceneContract;
   private readonly bubble: Bubble;
   private readonly taskPanel: TaskPanel;
+  private readonly pointer: PointerTracker;
   private readonly reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   private readonly disposers: (() => void)[] = [];
 
@@ -52,6 +54,15 @@ export class RendererApp {
     this.loop = new RenderLoop((frame) => this.onFrame(frame));
     this.bubble = new Bubble(els.bubble, els.bubbleText);
     this.taskPanel = new TaskPanel(els);
+    this.pointer = new PointerTracker(els.canvas, {
+      onMove: (point) => this.scene.setPointer(point),
+      onPress: () => undefined,
+      onDrag: () => undefined,
+      onRelease: (moved) => {
+        if (!moved) this.scene.poke();
+      },
+      onContextMenu: () => window.saber.openSettings(),
+    });
   }
 
   async start(): Promise<void> {
@@ -82,6 +93,7 @@ export class RendererApp {
     for (const dispose of this.disposers) dispose();
     this.disposers.length = 0;
     this.loop.stop();
+    this.pointer.destroy();
     this.scene.destroy?.();
     this.surface.destroy();
     this.bubble.destroy();

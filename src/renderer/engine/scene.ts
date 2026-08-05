@@ -29,4 +29,10 @@ export interface CompanionScene extends Scene {
   /** Global motion multiplier, already adjusted for reduced-motion. */
   setMotion(motion: number): void;
   setState(event: StateEvent): void;
+  /** Canvas-space cursor position, or null once it leaves. */
+  setPointer(point: { x: number; y: number } | null): void;
+  /** A click on the character. */
+  poke(): void;
+  /** Canvas-space box the character occupies, for hit-testing. */
+  silhouetteBounds(view: Viewport): { x: number; y: number; width: number; height: number };
 }
