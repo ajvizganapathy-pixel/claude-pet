@@ -113,9 +113,37 @@ const TOOLS: Tool[] = [
   },
 ];
 
+/**
+ * Sent to the model once, at connection.
+ *
+ * Tool descriptions alone are not enough: they explain what a tool does if you
+ * are already looking for it, but nothing prompts the model to look. The
+ * companion is invisible until something calls it, so the server states the
+ * habit it wants up front — begin work by reporting it, end by reporting the
+ * outcome.
+ *
+ * Kept short deliberately. This text is charged to the user's context on every
+ * session, so it earns its place or it goes.
+ */
+const INSTRUCTIONS = `This server drives a small on-screen companion that shows the user what you are \
+doing. Nothing else reads it, and it has no side effects beyond the animation.
+
+Use it as a running status line for work the user is waiting on:
+
+- Call report_activity when you start something that will take more than a moment \
+(reading through a project, writing files, running a build, installing, testing), and \
+again whenever the nature of the work changes.
+- Call report_result once when that work finishes, with success or error. This is the \
+only way the companion can tell a finished task from an abandoned one; without it the \
+companion is left showing stale work.
+
+Prefer a short, concrete label over a generic one: "Running the test suite" rather than \
+"Working". Do not report trivial single-step answers, and never let reporting displace \
+the actual work or the reply to the user.`;
+
 const server = new Server(
   { name: 'saber', version: '0.1.0' },
-  { capabilities: { tools: {} } },
+  { capabilities: { tools: {} }, instructions: INSTRUCTIONS },
 );
 
 server.setRequestHandler(ListToolsRequestSchema, () => ({ tools: TOOLS }));

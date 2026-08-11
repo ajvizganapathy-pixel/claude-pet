@@ -21,6 +21,7 @@ let listener: net.Server;
 const received: StateEvent[] = [];
 const pending = new Map<number, (message: Record<string, unknown>) => void>();
 let nextId = 1;
+let initializeResult: Record<string, unknown> = {};
 
 /** Stands in for the companion's main process. */
 function startListener(): Promise<void> {
@@ -76,17 +77,29 @@ before(async () => {
     }
   });
 
-  await request('initialize', {
+  const initialized = await request('initialize', {
     protocolVersion: '2024-11-05',
     capabilities: {},
     clientInfo: { name: 'saber-test', version: '0' },
   });
+  initializeResult = initialized['result'] as Record<string, unknown>;
   server.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`);
 });
 
 after(() => {
   server?.kill();
   listener?.close();
+});
+
+test('initialize carries instructions telling the model to report its work', () => {
+  // Tool descriptions explain a tool to someone already looking for it; nothing
+  // prompts the model to look. The instructions are what make the companion
+  // animate without the user asking for it, so their absence is a regression
+  // that would be invisible everywhere else.
+  const instructions = initializeResult['instructions'];
+  assert.equal(typeof instructions, 'string');
+  assert.match(instructions as string, /report_activity/);
+  assert.match(instructions as string, /report_result/);
 });
 
 test('advertises only reporting tools — no file or shell access', async () => {
