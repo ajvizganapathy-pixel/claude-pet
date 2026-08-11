@@ -31,7 +31,7 @@ export class CompanionPipeClient {
   constructor(private readonly pipePath: string = resolvePipePath()) {}
 
   get connected(): boolean {
-    return this.socket !== null && !this.socket.destroyed;
+    return this.socket !== null && !this.socket.destroyed && this.socket.writable;
   }
 
   start(): void {
@@ -41,14 +41,17 @@ export class CompanionPipeClient {
 
   send(event: StateEvent): void {
     if (this.closed) return;
-
     if (!this.connected) {
-      this.queue.push(event);
-      if (this.queue.length > MAX_QUEUE) this.queue.shift();
+      this.enqueue(event);
       return;
     }
-
     this.write(event);
+  }
+
+  /** Oldest out: stale state is worthless, and the newest event is the truth. */
+  private enqueue(event: StateEvent): void {
+    this.queue.push(event);
+    if (this.queue.length > MAX_QUEUE) this.queue.shift();
   }
 
   stop(): void {
@@ -94,12 +97,30 @@ export class CompanionPipeClient {
     this.backoff = Math.min(RECONNECT_MAX_MS, this.backoff * 2);
   }
 
+  /**
+   * Writes, and re-queues if the write does not land.
+   *
+   * A socket stays `writable` for some time after the companion has gone —
+   * the close event arrives asynchronously, so there is a window where `send`
+   * looks connected and the bytes go nowhere. Dropping an event there is not
+   * harmless: `report_result` is the only signal that a task finished, and
+   * losing it leaves the character showing work that ended minutes ago.
+   *
+   * So failures go back on the queue, and the reconnect flushes them.
+   */
   private write(event: StateEvent): void {
+    const socket = this.socket;
+    if (!socket) {
+      this.enqueue(event);
+      return;
+    }
+
     try {
-      this.socket?.write(JSON.stringify(event) + PIPE_DELIMITER);
+      socket.write(JSON.stringify(event) + PIPE_DELIMITER, (err) => {
+        if (err && !this.closed) this.enqueue(event);
+      });
     } catch {
-      // A failed write means the companion went away mid-send; the close
-      // handler will reconnect. Losing one event is the correct outcome.
+      this.enqueue(event);
     }
   }
 }

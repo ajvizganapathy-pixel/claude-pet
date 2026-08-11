@@ -16,6 +16,8 @@ const log = createLogger('tray');
 
 export interface TrayDeps {
   appPath: string;
+  /** How many MCP servers are currently attached to the pipe. */
+  linkedClients(): number;
   isVisible(): boolean;
   setVisible(visible: boolean): void;
   getSettings(): Settings;
@@ -58,6 +60,12 @@ export class CompanionTray {
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: `Saber — ${descriptor.label}`, enabled: false },
+        {
+          // The one thing that is otherwise invisible: whether Claude Desktop
+          // has actually launched the MCP server and reached the companion.
+          label: this.linkLabel(),
+          enabled: false,
+        },
         { type: 'separator' },
         {
           label: 'Show companion',
@@ -78,6 +86,16 @@ export class CompanionTray {
           checked: settings.showTaskPanel,
           click: (item) => this.deps.patchSettings({ showTaskPanel: item.checked }),
         },
+        {
+          label: 'Start with Windows',
+          type: 'checkbox',
+          checked: settings.launchAtLogin,
+          // The OS can refuse the write (group policy, managed machines), so
+          // the click reflects intent and the next rebuild shows the truth.
+          enabled: process.platform === 'win32',
+          toolTip: 'Launch the companion in the tray when you sign in',
+          click: (item) => this.deps.patchSettings({ launchAtLogin: item.checked }),
+        },
         { type: 'separator' },
         {
           label: 'Reset position',
@@ -89,6 +107,18 @@ export class CompanionTray {
         { label: 'Quit Saber', click: () => this.deps.quit() },
       ]),
     );
+  }
+
+  /**
+   * Claude Desktop launches the MCP server as a stdio child and the server
+   * connects back over the pipe, so a client count above zero means the whole
+   * chain is live. Zero usually means Claude Desktop has not been restarted
+   * since registration.
+   */
+  private linkLabel(): string {
+    const clients = this.deps.linkedClients();
+    if (clients > 0) return `Claude Desktop — connected${clients > 1 ? ` (${clients})` : ''}`;
+    return 'Claude Desktop — not connected';
   }
 
   destroy(): void {

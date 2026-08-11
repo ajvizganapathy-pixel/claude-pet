@@ -7,7 +7,7 @@
  */
 
 import type { StateEvent, StateName } from '@shared/protocol.js';
-import { DEFAULT_SETTINGS, type Settings } from '@shared/settings.js';
+import { DEFAULT_SETTINGS, type CharacterStyle, type Settings } from '@shared/settings.js';
 import { descriptorFor } from '@shared/states.js';
 import { RenderLoop, type Frame } from './engine/loop.js';
 import type { CompanionScene as CompanionSceneContract } from './engine/scene.js';
@@ -15,6 +15,7 @@ import { CanvasSurface } from './engine/surface.js';
 import { HitTester } from './input/hitTest.js';
 import { PointerTracker } from './input/pointerTracker.js';
 import { CompanionScene } from './scenes/companionScene.js';
+import { SpriteScene } from './scenes/spriteScene.js';
 import { Bubble } from './ui/bubble.js';
 import { TaskPanel, type TaskPanelElements } from './ui/taskPanel.js';
 
@@ -38,7 +39,9 @@ export interface AppElements extends TaskPanelElements {
 export class RendererApp {
   private readonly surface: CanvasSurface;
   private readonly loop: RenderLoop;
-  private readonly scene: CompanionSceneContract;
+  /** Swapped when the `character` setting changes; see `applyCharacter`. */
+  private scene: CompanionSceneContract;
+  private character: CharacterStyle = DEFAULT_SETTINGS.character;
   private readonly bubble: Bubble;
   private readonly taskPanel: TaskPanel;
   private readonly pointer: PointerTracker;
@@ -53,7 +56,7 @@ export class RendererApp {
 
   constructor(private readonly els: AppElements) {
     this.surface = new CanvasSurface(els.canvas);
-    this.scene = new CompanionScene();
+    this.scene = createScene(this.character);
     this.loop = new RenderLoop((frame) => this.onFrame(frame));
     this.bubble = new Bubble(els.bubble, els.bubbleText);
     this.taskPanel = new TaskPanel(els);
@@ -146,6 +149,7 @@ export class RendererApp {
     this.settings = settings;
     const reduced = this.prefersReducedMotion();
 
+    this.applyCharacter(settings.character);
     this.taskPanel.setVisible(settings.showTaskPanel);
     // Showing or hiding the panel moves the canvas, so the cached offset the
     // hit-tester depends on has to be re-read.
@@ -153,6 +157,24 @@ export class RendererApp {
     this.bubble.setAnimated(!reduced);
     this.scene.setMotion(settings.motion * (reduced ? REDUCED_MOTION_FACTOR : 1));
     this.updateFrameRate();
+  }
+
+  /**
+   * Swaps the character artwork in place. The scene owns no DOM, so this is
+   * just a rebuild plus a replay of everything it needs to know — the loop,
+   * the surface and the hit-tester carry on against the new one.
+   */
+  private applyCharacter(style: CharacterStyle): void {
+    if (style === this.character) return;
+    this.character = style;
+
+    this.scene.destroy?.();
+    this.scene = createScene(style);
+
+    const descriptor = descriptorFor(this.state?.state ?? 'idle');
+    this.scene.setAccent(descriptor.accent);
+    this.scene.setMotion(this.settings.motion * (this.prefersReducedMotion() ? REDUCED_MOTION_FACTOR : 1));
+    this.scene.setState(this.state ?? idleEvent());
   }
 
   private applyState(event: StateEvent): void {
@@ -186,6 +208,9 @@ export class RendererApp {
     return this.reducedMotionQuery.matches;
   }
 }
+
+const createScene = (style: CharacterStyle): CompanionSceneContract =>
+  style === 'procedural' ? new CompanionScene() : new SpriteScene();
 
 const idleEvent = (): StateEvent => ({
   state: 'idle',

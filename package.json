@@ -8,11 +8,15 @@
     "node": ">=20"
   },
   "scripts": {
+    "postinstall": "node scripts/postinstall.mjs",
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "start": "npm run build && electron .",
+    "setup": "node scripts/setup.mjs",
     "register": "node scripts/build.mjs && node dist/mcp/register.js",
+    "doctor": "node scripts/build.mjs && node dist/mcp/doctor.js",
     "icons": "node scripts/generate-icons.mjs",
+    "sprites": "node scripts/generate-sprites.mjs",
     "typecheck": "tsc --noEmit",
     "pretest": "node scripts/build.mjs",
     "test": "node scripts/test.mjs"

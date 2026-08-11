@@ -54,6 +54,10 @@ const plan: RegistrationPlan = remove ? planRemoval(existing) : planRegistration
 console.log(`Config: ${target}`);
 if (plan.entry) {
   console.log(`Entry:  "${SERVER_KEY}" -> ${plan.entry.command} ${plan.entry.args.join(' ')}`);
+  if (plan.entry.env) {
+    const env = Object.entries(plan.entry.env).map(([k, v]) => `${k}=${v}`);
+    console.log(`Env:    ${env.join(' ')}`);
+  }
 }
 console.log(`Action: ${plan.action}`);
 

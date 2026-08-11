@@ -11,6 +11,7 @@ import { Companion } from './companion.js';
 import { SettingsStore } from './config/settingsStore.js';
 import { watchRendererForReload } from './dev/devReload.js';
 import { registerIpc } from './ipc/bridge.js';
+import * as autoLaunch from './platform/autoLaunch.js';
 import { allowsCompanion, ForegroundWatcher } from './platform/foregroundWatcher.js';
 import { LogTailer } from './sources/logTailer.js';
 import { StatePipeServer } from './sources/pipeServer.js';
@@ -43,13 +44,33 @@ async function bootstrap(): Promise<void> {
   applyLogLevel(settings.value.logLevel);
   settings.on('change', (next: Settings) => applyLogLevel(next.logLevel));
 
-  const companion = new Companion(settings, resolveAssetPaths(app.getAppPath()));
+  // The OS holds the real login item, so adopt whatever it says before anything
+  // reads `launchAtLogin` — including the tray, which renders it as a checkbox.
+  const reconciled = autoLaunch.reconcile(settings.value.launchAtLogin);
+  if (reconciled !== settings.value.launchAtLogin) settings.patch({ launchAtLogin: reconciled });
+  settings.on('change', (next: Settings, changed: (keyof Settings)[]) => {
+    // Only act on a real change, or every unrelated patch would rewrite the
+    // registry entry.
+    if (changed.includes('launchAtLogin')) {
+      const applied = autoLaunch.setEnabled(next.launchAtLogin);
+      if (applied !== next.launchAtLogin) settings.patch({ launchAtLogin: applied });
+    }
+  });
+
+  // A login launch should arrive in the tray, not on top of the sign-in screen.
+  const companion = new Companion(settings, resolveAssetPaths(app.getAppPath()), {
+    startHidden: settings.value.startHidden || autoLaunch.openedAtLogin(),
+  });
   companion.start();
 
   const quit = (): void => app.quit();
 
+  // Created below, but the tray reads it lazily on every menu rebuild.
+  let statePipe: StatePipeServer | null = null;
+
   const tray = new CompanionTray({
     appPath: app.getAppPath(),
+    linkedClients: () => statePipe?.clientCount ?? 0,
     isVisible: () => companion.wantedVisible,
     setVisible: (visible) => companion.setWanted(visible),
     getSettings: () => settings.value,
@@ -73,7 +94,13 @@ async function bootstrap(): Promise<void> {
   arbiter.start();
 
   const pipe = new StatePipeServer();
+  statePipe = pipe;
   pipe.on('state', (event) => arbiter.submit(event));
+  // Claude Desktop attaching or detaching changes what the tray should say.
+  pipe.on('clients', (count) => {
+    log.info(`MCP clients: ${count}`);
+    tray.rebuild();
+  });
   const pipeReady = await pipe.start();
 
   const logTailer = new LogTailer(LogTailer.defaultLogPath(app.getPath('appData')));

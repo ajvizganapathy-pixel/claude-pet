@@ -23,6 +23,9 @@ const MAX_LINE_LENGTH = 16 * 1024;
 export declare interface StatePipeServer {
   on(event: 'state', listener: (payload: SourcedStateEvent) => void): this;
   emit(event: 'state', payload: SourcedStateEvent): boolean;
+  /** Fired when an MCP server attaches or detaches, with the new count. */
+  on(event: 'clients', listener: (count: number) => void): this;
+  emit(event: 'clients', count: number): boolean;
 }
 
 export class StatePipeServer extends EventEmitter {
@@ -71,6 +74,7 @@ export class StatePipeServer extends EventEmitter {
     this.sockets.add(socket);
     socket.setEncoding('utf8');
     log.debug('client connected');
+    this.emit('clients', this.sockets.size);
 
     let buffer = '';
 
@@ -92,8 +96,9 @@ export class StatePipeServer extends EventEmitter {
     });
 
     const forget = (): void => {
-      this.sockets.delete(socket);
+      if (!this.sockets.delete(socket)) return;
       log.debug('client disconnected');
+      this.emit('clients', this.sockets.size);
     };
     socket.on('close', forget);
     socket.on('error', (err) => {

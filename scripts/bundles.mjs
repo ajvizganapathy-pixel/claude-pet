@@ -90,7 +90,11 @@ export function bundles(dev) {
       name: 'mcp',
       options: {
         ...shared,
-        entryPoints: [path.join(root, 'src/mcp/server.ts'), path.join(root, 'src/mcp/register.ts')],
+        entryPoints: [
+          path.join(root, 'src/mcp/server.ts'),
+          path.join(root, 'src/mcp/register.ts'),
+          path.join(root, 'src/mcp/doctor.ts'),
+        ],
         outdir: path.join(outDir, 'mcp'),
         platform: 'node',
         format: 'cjs',
@@ -101,11 +105,19 @@ export function bundles(dev) {
   ];
 }
 
-/** Static renderer assets copied verbatim next to the bundled renderer. */
+/**
+ * Static renderer assets copied verbatim next to the bundled renderer.
+ *
+ * The character sheet is copied once per host page rather than shared, because
+ * the renderer resolves it against its own bundle URL (`import.meta.url`) and
+ * the preview page lives in a sibling directory.
+ */
 export const staticAssets = [
   { from: 'src/renderer/index.html', to: 'dist/renderer/index.html' },
   { from: 'src/renderer/style.css', to: 'dist/renderer/style.css' },
   { from: 'src/renderer/settings.html', to: 'dist/renderer/settings.html' },
   { from: 'src/preview/index.html', to: 'dist/preview/index.html' },
   { from: 'src/preview/preview.css', to: 'dist/preview/preview.css' },
+  { from: 'assets/character/cat-sheet.png', to: 'dist/renderer/assets/cat-sheet.png' },
+  { from: 'assets/character/cat-sheet.png', to: 'dist/preview/assets/cat-sheet.png' },
 ];

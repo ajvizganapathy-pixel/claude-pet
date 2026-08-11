@@ -24,6 +24,11 @@ const log = createLogger('companion');
 /** Settings that change the window itself rather than only its contents. */
 const STRUCTURAL_KEYS: ReadonlySet<keyof Settings> = new Set(['scale', 'showTaskPanel', 'anchor']);
 
+export interface CompanionOptions {
+  /** Overrides the stored `startHidden` for this run only. */
+  startHidden?: boolean;
+}
+
 export class Companion {
   private window: BrowserWindow | null = null;
   private lastState: StateEvent | null = null;
@@ -38,8 +43,11 @@ export class Companion {
   constructor(
     private readonly settings: SettingsStore,
     private readonly assets: CompanionWindowDeps,
+    options: CompanionOptions = {},
   ) {
-    this.wanted = !settings.value.startHidden;
+    // `startHidden` is the stored preference; the override lets a login launch
+    // start quiet without persisting that as the user's choice.
+    this.wanted = !(options.startHidden ?? settings.value.startHidden);
     settings.on('change', (next: Settings, changed: (keyof Settings)[]) => {
       this.onSettingsChanged(next, changed);
     });
