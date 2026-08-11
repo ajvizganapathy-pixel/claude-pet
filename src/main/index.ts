@@ -11,6 +11,7 @@ import { Companion } from './companion.js';
 import { SettingsStore } from './config/settingsStore.js';
 import { watchRendererForReload } from './dev/devReload.js';
 import { registerIpc } from './ipc/bridge.js';
+import * as autoLaunch from './platform/autoLaunch.js';
 import { allowsCompanion, ForegroundWatcher } from './platform/foregroundWatcher.js';
 import { LogTailer } from './sources/logTailer.js';
 import { StatePipeServer } from './sources/pipeServer.js';
@@ -43,7 +44,23 @@ async function bootstrap(): Promise<void> {
   applyLogLevel(settings.value.logLevel);
   settings.on('change', (next: Settings) => applyLogLevel(next.logLevel));
 
-  const companion = new Companion(settings, resolveAssetPaths(app.getAppPath()));
+  // The OS holds the real login item, so adopt whatever it says before anything
+  // reads `launchAtLogin` — including the tray, which renders it as a checkbox.
+  const reconciled = autoLaunch.reconcile(settings.value.launchAtLogin);
+  if (reconciled !== settings.value.launchAtLogin) settings.patch({ launchAtLogin: reconciled });
+  settings.on('change', (next: Settings, changed: (keyof Settings)[]) => {
+    // Only act on a real change, or every unrelated patch would rewrite the
+    // registry entry.
+    if (changed.includes('launchAtLogin')) {
+      const applied = autoLaunch.setEnabled(next.launchAtLogin);
+      if (applied !== next.launchAtLogin) settings.patch({ launchAtLogin: applied });
+    }
+  });
+
+  // A login launch should arrive in the tray, not on top of the sign-in screen.
+  const companion = new Companion(settings, resolveAssetPaths(app.getAppPath()), {
+    startHidden: settings.value.startHidden || autoLaunch.openedAtLogin(),
+  });
   companion.start();
 
   const quit = (): void => app.quit();

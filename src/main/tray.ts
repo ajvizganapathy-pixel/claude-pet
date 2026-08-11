@@ -78,6 +78,16 @@ export class CompanionTray {
           checked: settings.showTaskPanel,
           click: (item) => this.deps.patchSettings({ showTaskPanel: item.checked }),
         },
+        {
+          label: 'Start with Windows',
+          type: 'checkbox',
+          checked: settings.launchAtLogin,
+          // The OS can refuse the write (group policy, managed machines), so
+          // the click reflects intent and the next rebuild shows the truth.
+          enabled: process.platform === 'win32',
+          toolTip: 'Launch the companion in the tray when you sign in',
+          click: (item) => this.deps.patchSettings({ launchAtLogin: item.checked }),
+        },
         { type: 'separator' },
         {
           label: 'Reset position',

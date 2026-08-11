@@ -28,6 +28,11 @@ export interface Settings {
   sound: boolean;
   /** Start hidden in the tray. */
   startHidden: boolean;
+  /**
+   * Register the app with the OS so it starts at login. Windows-only; the
+   * setting is stored on every platform but only acted on where it applies.
+   */
+  launchAtLogin: boolean;
   /** Cap the render loop; 60 unless the user wants to spend less power. */
   frameRateCap: number;
   logLevel: 'debug' | 'info' | 'warn' | 'error' | 'silent';
@@ -43,6 +48,7 @@ export const DEFAULT_SETTINGS: Settings = {
   motionPreference: 'auto',
   sound: false,
   startHidden: false,
+  launchAtLogin: false,
   frameRateCap: 60,
   logLevel: 'info',
 };
@@ -99,6 +105,7 @@ export function normaliseSettings(input: unknown, base: Settings = DEFAULT_SETTI
     motionPreference: oneOf(raw['motionPreference'], MOTION_PREFS, base.motionPreference),
     sound: bool(raw['sound'], base.sound),
     startHidden: bool(raw['startHidden'], base.startHidden),
+    launchAtLogin: bool(raw['launchAtLogin'], base.launchAtLogin),
     frameRateCap: Math.round(
       num(
         raw['frameRateCap'],
