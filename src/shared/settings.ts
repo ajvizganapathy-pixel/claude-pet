@@ -10,10 +10,21 @@
 export type CornerAnchor = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
 export type MotionPreference = 'auto' | 'full' | 'reduced';
 
+/**
+ * Which character the renderer draws.
+ *
+ *  - `sprite` plays the baked cartoon-cat sheet in `assets/character/`.
+ *  - `procedural` draws the original vector rig, which needs no assets and is
+ *    also what `sprite` falls back to if the sheet cannot be loaded.
+ */
+export type CharacterStyle = 'sprite' | 'procedural';
+
 export interface Settings {
   /** Explicit window position in screen pixels; null means "use the anchor". */
   position: { x: number; y: number } | null;
   anchor: CornerAnchor;
+  /** Which character artwork the renderer draws. */
+  character: CharacterStyle;
   /** Character scale multiplier. */
   scale: number;
   /** Global motion multiplier; 0 stills the rig without hiding it. */
@@ -41,6 +52,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   position: null,
   anchor: 'bottom-right',
+  character: 'sprite',
   scale: 1,
   motion: 1,
   followClaudeFocus: true,
@@ -60,6 +72,7 @@ export const SETTINGS_LIMITS = {
 } as const;
 
 const ANCHORS: readonly CornerAnchor[] = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
+const CHARACTERS: readonly CharacterStyle[] = ['sprite', 'procedural'];
 const MOTION_PREFS: readonly MotionPreference[] = ['auto', 'full', 'reduced'];
 const LOG_LEVELS: readonly Settings['logLevel'][] = ['debug', 'info', 'warn', 'error', 'silent'];
 
@@ -98,6 +111,7 @@ export function normaliseSettings(input: unknown, base: Settings = DEFAULT_SETTI
   return {
     position: has('position') ? position(raw['position']) : base.position,
     anchor: oneOf(raw['anchor'], ANCHORS, base.anchor),
+    character: oneOf(raw['character'], CHARACTERS, base.character),
     scale: num(raw['scale'], base.scale, SETTINGS_LIMITS.scale.min, SETTINGS_LIMITS.scale.max),
     motion: num(raw['motion'], base.motion, SETTINGS_LIMITS.motion.min, SETTINGS_LIMITS.motion.max),
     followClaudeFocus: bool(raw['followClaudeFocus'], base.followClaudeFocus),

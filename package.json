@@ -13,6 +13,7 @@
     "start": "npm run build && electron .",
     "register": "node scripts/build.mjs && node dist/mcp/register.js",
     "icons": "node scripts/generate-icons.mjs",
+    "sprites": "node scripts/generate-sprites.mjs",
     "typecheck": "tsc --noEmit",
     "pretest": "node scripts/build.mjs",
     "test": "node scripts/test.mjs"

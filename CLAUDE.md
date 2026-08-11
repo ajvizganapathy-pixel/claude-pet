@@ -16,6 +16,12 @@ Three processes matter: **main** (window, tray, foreground-window polling), **re
 
 **The MCP server sees tool calls, not thoughts.** `thinking` and `typing` states are inferred from the gap between calls and from streaming activity in the logs, not reported directly. Treat those two as best-effort; the rest are exact.
 
+**There are two characters, and only one of them is drawn.** `settings.character` picks between `spriteScene` (a baked sprite sheet, the default) and `companionScene` (the procedural vector rig). The procedural rig is also the stand-in: it draws while the sheet decodes and stays put if the sheet never loads, so `SpriteScene` is never the reason the overlay is blank. If you are debugging "the character looks wrong", check which one is actually on screen before reading any rig code.
+
+**The sprite sheet's manifest is generated.** `src/renderer/rig2d/sheetManifest.ts` is written by `npm run sprites` alongside the PNG — edit `scripts/sprites/clips.mjs` and regenerate, or your change is gone at the next bake. The manifest is a TypeScript module rather than JSON because the renderer runs under `default-src 'none'` with no `connect-src` and cannot fetch a sidecar file.
+
+**Dead renderer code does not fail the build.** esbuild starts at `boot.ts` and bundles only what it reaches, so a scene nothing imports can reference missing modules and missing packages indefinitely while `npm run build` reports success. `npm run typecheck` is the check that catches it; run it before believing a build.
+
 ## Conventions
 
-Animation values live in one flat rig object and are damped toward targets — never set directly, or motion snaps and the whole thing reads as cheap. Adding an expression should mean adding one entry to the states table and nothing else.
+Animation values live in one flat rig object and are damped toward targets — never set directly, or motion snaps and the whole thing reads as cheap. Adding an expression should mean adding one entry to the states table and nothing else. In the sprite path the same rule applies one level up: a clip in `scripts/sprites/clips.mjs` is a function from loop position to a pose, and the two channels that cannot be baked (the lean towards the cursor, the accent glow) are still damped at runtime rather than assigned.
