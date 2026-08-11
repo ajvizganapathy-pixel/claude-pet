@@ -65,8 +65,12 @@ async function bootstrap(): Promise<void> {
 
   const quit = (): void => app.quit();
 
+  // Created below, but the tray reads it lazily on every menu rebuild.
+  let statePipe: StatePipeServer | null = null;
+
   const tray = new CompanionTray({
     appPath: app.getAppPath(),
+    linkedClients: () => statePipe?.clientCount ?? 0,
     isVisible: () => companion.wantedVisible,
     setVisible: (visible) => companion.setWanted(visible),
     getSettings: () => settings.value,
@@ -90,7 +94,13 @@ async function bootstrap(): Promise<void> {
   arbiter.start();
 
   const pipe = new StatePipeServer();
+  statePipe = pipe;
   pipe.on('state', (event) => arbiter.submit(event));
+  // Claude Desktop attaching or detaching changes what the tray should say.
+  pipe.on('clients', (count) => {
+    log.info(`MCP clients: ${count}`);
+    tray.rebuild();
+  });
   const pipeReady = await pipe.start();
 
   const logTailer = new LogTailer(LogTailer.defaultLogPath(app.getPath('appData')));

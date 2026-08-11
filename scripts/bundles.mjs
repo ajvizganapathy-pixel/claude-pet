@@ -90,7 +90,11 @@ export function bundles(dev) {
       name: 'mcp',
       options: {
         ...shared,
-        entryPoints: [path.join(root, 'src/mcp/server.ts'), path.join(root, 'src/mcp/register.ts')],
+        entryPoints: [
+          path.join(root, 'src/mcp/server.ts'),
+          path.join(root, 'src/mcp/register.ts'),
+          path.join(root, 'src/mcp/doctor.ts'),
+        ],
         outdir: path.join(outDir, 'mcp'),
         platform: 'node',
         format: 'cjs',
